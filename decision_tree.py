@@ -170,9 +170,17 @@ def make_decision(tree, instance):
                 node.cls = 'Un-classified'
         else:
             if val < pivot:
-                node = node.branches[1]
+                if node.branches.has_key(1):
+                    node = node.branches[1]
+                else:
+                    node     = TreeNode()
+                    node.cls = 'Un-classified'
             else:
-                node = node.branches[0]
+                if node.branches.has_key(0):
+                    node = node.branches[0]
+                else:
+                    node     = TreeNode()
+                    node.cls = 'Un-classified'
     return node.cls
 
 
