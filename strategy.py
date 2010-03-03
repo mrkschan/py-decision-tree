@@ -21,7 +21,7 @@ def nominal(dataset, attr, cls_attr, measure, impurity=None, _cmp=None):
     for c in cluster.values():
         gain -= measure(c, cls_attr)
 
-    return None, gain
+    return cluster.keys(), gain
 
 
 def ordinal(dataset, attr, cls_attr, measure, impurity=None, _cmp=None):
