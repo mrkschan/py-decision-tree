@@ -43,6 +43,13 @@ def build_tree(dataset, cls_attr, attr_strategy, measure=None, threshold=None, q
         import measure as m
         measure = m.cls_err
 
+    # if no more element for decision
+    # return a leaf node for unclassified
+    if len(dataset) == 0:
+        leaf = TreeNode()
+        leaf.cls = 'Un-classified'
+        return leaf
+
     # if no more attribute for decision
     # return a leaf node by majority
     if len(attr_strategy) == 0:
