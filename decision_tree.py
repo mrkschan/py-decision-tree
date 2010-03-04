@@ -7,6 +7,15 @@ class TreeNode:
         self.attr     = None
         self.cls      = None
 
+    def size(self):
+        if self.cls is not None:
+            return 1
+        else:
+            s = 0
+            for b in self.branches.values():
+                s += b.size()
+            return s
+
 def majority(dataset, cls_attr):
     '''
     Return the class of the given dataset based on majority rule
@@ -198,13 +207,19 @@ def __test__():
         {'a': 1, 'b': datetime.date(2007, 12, 5), 'c': 'A', 'd': 'A', 'cls': 2},
         {'a': 1, 'b': datetime.date(2007, 12, 5), 'c': 'E', 'd': 'A', 'cls': 2},
         {'a': 3, 'b': datetime.date(2009, 12, 5), 'c': 'B', 'd': 'A', 'cls': 1},
-        {'a': 3, 'b': datetime.date(2009, 12, 5), 'c': 'D', 'd': 'A', 'cls': 1},
+        {'a': 5, 'b': datetime.date(2010, 12, 5), 'c': 'E', 'd': 'D', 'cls': 1},
+        {'a': 3, 'b': datetime.date(2009, 12, 5), 'c': 'B', 'd': 'A', 'cls': 1},
+        {'a': 3, 'b': datetime.date(2009, 12, 5), 'c': 'D', 'd': 'B', 'cls': 1},
+        {'a': 9, 'b': datetime.date(2008, 12, 5), 'c': 'D', 'd': 'B', 'cls': 3},
+        {'a': 6, 'b': datetime.date(2008, 12, 5), 'c': 'B', 'd': 'A', 'cls': 3},
         {'a': 9, 'b': datetime.date(2008, 12, 5), 'c': 'D', 'd': 'A', 'cls': 3},
         {'a': 2, 'b': datetime.date(2003, 12, 5), 'c': 'A', 'd': 'C', 'cls': 1},
-        {'a': 7, 'b': datetime.date(2004, 12, 5), 'c': 'A', 'd': 'C', 'cls': 1},
-        {'a': 7, 'b': datetime.date(2004, 12, 5), 'c': 'E', 'd': 'C', 'cls': 1},
+        {'a': 2, 'b': datetime.date(2003, 12, 5), 'c': 'A', 'd': 'C', 'cls': 1},
+        {'a': 7, 'b': datetime.date(2004, 12, 5), 'c': 'A', 'd': 'D', 'cls': 1},
+        {'a': 5, 'b': datetime.date(2004, 12, 5), 'c': 'C', 'd': 'B', 'cls': 1},
+        {'a': 7, 'b': datetime.date(2004, 12, 5), 'c': 'E', 'd': 'B', 'cls': 1},
         {'a': 2, 'b': datetime.date(2010, 12, 5), 'c': 'C', 'd': 'C', 'cls': 3},
-        {'a': 9, 'b': datetime.date(2010, 12, 5), 'c': 'D', 'd': 'B', 'cls': 3},
+        {'a': 2, 'b': datetime.date(2010, 12, 5), 'c': 'D', 'd': 'B', 'cls': 3},
     ]
 
     tree = build_tree(data, 'cls', [
@@ -212,7 +227,9 @@ def __test__():
         ('b', strategy.interval, None),
         ('c', strategy.ordinal,  None),
         ('d', strategy.nominal,  None),
-    ], quiet=False)
+    ], quiet=False, threshold=.35)
+
+    print 'Tree size: %d' % tree.size()
 
     print 'Test tree:'
     print make_decision(tree, {'a': 5, 'b': datetime.date(2006, 12, 5), 'c': 'B', 'd': 'C'})
