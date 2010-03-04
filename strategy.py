@@ -1,6 +1,13 @@
 # partitioning strategy for different kind of attribute
 
-def nominal(dataset, attr, cls_attr, measure, impurity=None, _cmp=None):
+# for normalization of (the effect of splitting too much) purity gain :
+# use gain ratio instead of gain
+# gain ratio = gain / split info
+# split info = Sum( split ratio * log_2(split ratio) )
+
+import math
+
+def nominal(dataset, attr, cls_attr, measure, impurity=None, normalize=True, _cmp=None):
     '''
     Distinct value without order
         - Multiway partitioning
@@ -17,14 +24,28 @@ def nominal(dataset, attr, cls_attr, measure, impurity=None, _cmp=None):
             cluster[cls] = []
         cluster[cls].append(instance)
 
+    if normalize:
+        # normalization preparation
+        split = .0
+        size  = len(dataset)
+
     gain = impurity
+
     for c in cluster.values():
         gain -= measure(c, cls_attr)
+        if normalize:
+            # compute split info for normalization
+            ratio  = 1.0 * len(c) / size
+            split += -ratio * math.log(ratio, 2)
+
+    if normalize:
+        # normalize as gain ratio
+        gain /= split
 
     return cluster.keys(), gain
 
 
-def ordinal(dataset, attr, cls_attr, measure, impurity=None, _cmp=None):
+def ordinal(dataset, attr, cls_attr, measure, impurity=None, normalize=True, _cmp=None):
     '''
     Distinct value with order
         - Binary partitioning
@@ -49,22 +70,32 @@ def ordinal(dataset, attr, cls_attr, measure, impurity=None, _cmp=None):
         else:
             pivot = dataset[i][attr]
 # TODO: may try to pass index instead of a set to impurity measure
-            head          = dataset[:i]
-            head_ratio    = len(head)/size
-            head_impurity = measure(head, cls_attr)
+            head_partition = dataset[:i]
+            head_impurity  = measure(head_partition, cls_attr)
 
-            tail          = dataset[i:]
-            tail_ratio    = len(tail)/size
-            tail_impurity = measure(tail, cls_attr)
+            tail_partition = dataset[i:]
+            tail_impurity  = measure(tail_partition, cls_attr)
 
             gain = impurity - head_impurity - tail_impurity
+
+            if normalize:
+                # compute split info
+                head_ratio = 1.0 * len(head_partition) / size
+                tail_ratio = 1.0 * len(tail_partition) / size
+
+                split  = .0
+                split += -head_ratio * math.log(head_ratio, 2)
+                split += -tail_ratio * math.log(tail_ratio, 2)
+
+                gain /= split
+
             if gain > best_gain:
                 best_gain  = gain
                 best_pivot = pivot
 
     return best_pivot, best_gain
 
-def interval(dataset, attr, cls_attr, measure, impurity=None, _cmp=None):
+def interval(dataset, attr, cls_attr, measure, impurity=None, normalize=True, _cmp=None):
     '''
     Numeric value where the differences between value is meaningful
     Measured along a scale in which each position is equidistant from another
@@ -90,22 +121,32 @@ def interval(dataset, attr, cls_attr, measure, impurity=None, _cmp=None):
         else:
             pivot = dataset[i][attr]
 # TODO: may try to pass index instead of a set to impurity measure
-            head          = dataset[:i]
-            head_ratio    = len(head)/size
-            head_impurity = measure(head, cls_attr)
+            head_partition = dataset[:i]
+            head_impurity  = measure(head_partition, cls_attr)
 
-            tail          = dataset[i:]
-            tail_ratio    = len(tail)/size
-            tail_impurity = measure(tail, cls_attr)
+            tail_partition = dataset[i:]
+            tail_impurity  = measure(tail_partition, cls_attr)
 
             gain = impurity - head_impurity - tail_impurity
+
+            if normalize:
+                # compute split info
+                head_ratio = 1.0 * len(head_partition) / size
+                tail_ratio = 1.0 * len(tail_partition) / size
+
+                split  = .0
+                split += -head_ratio * math.log(head_ratio, 2)
+                split += -tail_ratio * math.log(tail_ratio, 2)
+
+                gain /= split
+
             if gain > best_gain:
                 best_gain  = gain
                 best_pivot = pivot
 
     return best_pivot, best_gain
 
-def ratio(dataset, attr, cls_attr, measure, impurity=None, _cmp=None):
+def ratio(dataset, attr, cls_attr, measure, impurity=None, normalize=True, _cmp=None):
     '''
     Numeric value where both the differences and the ratio are meaningful
     The number zero has meaning
@@ -131,15 +172,25 @@ def ratio(dataset, attr, cls_attr, measure, impurity=None, _cmp=None):
         else:
             pivot = (dataset[i-1][attr] + dataset[i][attr]) / 2.0
 # TODO: may try to pass index instead of a set to impurity measure
-            head          = dataset[:i]
-            head_ratio    = len(head)/size
-            head_impurity = measure(head, cls_attr)
+            head_partition = dataset[:i]
+            head_impurity  = measure(head_partition, cls_attr)
 
-            tail          = dataset[i:]
-            tail_ratio    = len(tail)/size
-            tail_impurity = measure(tail, cls_attr)
+            tail_partition = dataset[i:]
+            tail_impurity  = measure(tail_partition, cls_attr)
 
             gain = impurity - head_impurity - tail_impurity
+
+            if normalize:
+                # compute split info
+                head_ratio = 1.0 * len(head_partition) / size
+                tail_ratio = 1.0 * len(tail_partition) / size
+
+                split  = .0
+                split += -head_ratio * math.log(head_ratio, 2)
+                split += -tail_ratio * math.log(tail_ratio, 2)
+
+                gain /= split
+
             if gain > best_gain:
                 best_gain  = gain
                 best_pivot = pivot
@@ -163,21 +214,45 @@ def __test__():
     giniidx_impurity = measure.giniidx(data, 'cls')
     cls_err_impurity = measure.cls_err(data, 'cls')
 
+    print 'split'
     print ratio(data, 'a', 'cls', measure.entropy, entropy_impurity)
     print ratio(data, 'a', 'cls', measure.giniidx, giniidx_impurity)
     print ratio(data, 'a', 'cls', measure.cls_err, cls_err_impurity)
+    print 'nosplit'
+    print ratio(data, 'a', 'cls', measure.entropy, entropy_impurity, False)
+    print ratio(data, 'a', 'cls', measure.giniidx, giniidx_impurity, False)
+    print ratio(data, 'a', 'cls', measure.cls_err, cls_err_impurity, False)
+    print
 
+    print 'split'
     print interval(data, 'b', 'cls', measure.entropy, entropy_impurity)
     print interval(data, 'b', 'cls', measure.giniidx, giniidx_impurity)
     print interval(data, 'b', 'cls', measure.cls_err, cls_err_impurity)
+    print 'nosplit'
+    print interval(data, 'b', 'cls', measure.entropy, entropy_impurity, False)
+    print interval(data, 'b', 'cls', measure.giniidx, giniidx_impurity, False)
+    print interval(data, 'b', 'cls', measure.cls_err, cls_err_impurity, False)
+    print
 
+    print 'split'
     print ordinal(data, 'c', 'cls', measure.entropy, entropy_impurity)
     print ordinal(data, 'c', 'cls', measure.giniidx, giniidx_impurity)
     print ordinal(data, 'c', 'cls', measure.cls_err, cls_err_impurity)
+    print 'nosplit'
+    print ordinal(data, 'c', 'cls', measure.entropy, entropy_impurity, False)
+    print ordinal(data, 'c', 'cls', measure.giniidx, giniidx_impurity, False)
+    print ordinal(data, 'c', 'cls', measure.cls_err, cls_err_impurity, False)
+    print
 
+    print 'split'
     print nominal(data, 'c', 'cls', measure.entropy, entropy_impurity)
     print nominal(data, 'c', 'cls', measure.giniidx, giniidx_impurity)
     print nominal(data, 'c', 'cls', measure.cls_err, cls_err_impurity)
+    print 'nosplit'
+    print nominal(data, 'c', 'cls', measure.entropy, entropy_impurity, False)
+    print nominal(data, 'c', 'cls', measure.giniidx, giniidx_impurity, False)
+    print nominal(data, 'c', 'cls', measure.cls_err, cls_err_impurity, False)
+    print
 
 if __name__ == '__main__':
     __test__()
