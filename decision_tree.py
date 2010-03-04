@@ -1,17 +1,19 @@
 # decision tree
 
+import copy
+
 class TreeNode:
-    cls_attr = None # shared
 
     def __init__(self):
+        self.cls_attr = None
+        self.depth    = None
+
         self.cls      = None # only leaf node contains class label
         self.cluster  = None # only leaf node contains cluster
 
         self.pivot    = None # only internal node contains pivot
         self.attr     = None # only internal node contains attr for decision
         self.branches = None # only internal node contains branches to TreeNode
-
-        self.depth    = None
 
 
     def size(self):
@@ -59,21 +61,45 @@ class TreeNode:
 
     def merge_deepest(self, deepest):
         if self.depth + 1 == deepest:
-            # do merge
-            self.cluster = []
-            for b in self.branches.values():
-                self.cluster += b.cluster
+            if self.cls is None:
+                # do merge for "deepest" internal node
+                self.cluster = []
+                for b in self.branches.values():
+                    self.cluster += b.cluster
 
-            self.cls      = self.majority()
-            self.pivot    = self.attr = None
-            self.branches = None # gc branches
+                self.cls      = self.majority()
+                self.pivot    = self.attr = None
+                self.branches = None # gc branches
         else:
-            self.merge_deepest(deepest)
+            if self.cls is None:
+                for b in self.branches.values():
+                    b.merge_deepest(deepest)
 
 
     def trim_last_lvl(self):
         deepest = self.probe_deepest()
         self.merge_deepest(deepest)
+
+
+    def clone(self):
+        c = TreeNode()
+        c.cls_attr = self.cls_attr
+        c.depth    = self.depth
+
+        if self.cls is not None:
+            c.cls = self.cls
+            c.cluster = self.cluster[:]
+
+            c.pivot = c.attr = c.branches = None
+        else:
+            c.pivot    = self.pivot
+            c.attr     = self.attr
+            c.branches = {}
+            for attr, b in self.branches.items():
+                c.branches[attr] = b.clone()
+
+        return c
+# end TreeNode
 
 
 def build_tree(dataset, cls_attr, attr_strategy, measure=None, threshold=.0, quiet=True, _depth=0):
@@ -194,6 +220,7 @@ def build_tree(dataset, cls_attr, attr_strategy, measure=None, threshold=.0, qui
                     clusters[0].append(instance)
 
         tree = TreeNode()
+        tree.cls_attr = cls_attr
         tree.depth    = _depth
         tree.pivot    = pivot
         tree.attr     = best_attr
@@ -252,8 +279,32 @@ def build_postpruning_tree(testset, validset, cls_attr, attr_strategy, measure=N
         Stop pruning tree when lower-lvl-err-estimate < higher-lvl-err-estimate
     '''
     tree = build_tree(testset, cls_attr, attr_strategy, measure, .0, quiet)
+    size = len(validset)
 
-    return tree
+    o_estimate = None
+    while True:
+        err_count  = 0
+        for instance in validset:
+            c = make_decision(tree, instance)
+            if c != instance[cls_attr]:
+                err_count += 1
+
+        estimate = (err_count + tree.size() * penality) / size
+        if not quiet:
+            print 'leaf: %s, dataset: %s, err: %s [%s%%]' % \
+                (tree.size(), size, err_count, 100.0 * err_count / size)
+            print 'estimates: %s %s' % (o_estimate, estimate)
+            print
+
+        if o_estimate is not None and o_estimate <= estimate:
+            break
+
+        otree = tree.clone()
+        o_estimate = estimate
+
+        tree.trim_last_lvl()
+
+    return otree
 
 
 def __test__():
@@ -266,20 +317,20 @@ def __test__():
     f.close()
 
 
-    tree = build_tree(data, 10, [
-        (0, strategy.nominal,  None),
-        (1, strategy.interval, None),
-        (2, strategy.nominal,  None),
-        (3, strategy.interval, None),
-        (4, strategy.nominal,  None),
-        (5, strategy.interval, None),
-        (6, strategy.nominal,  None),
-        (7, strategy.interval, None),
-        (8, strategy.nominal,  None),
-        (9, strategy.interval, None),
-    ], quiet=False, threshold=.0)
+    #~ tree = build_tree(data, 10, [
+        #~ (0, strategy.nominal,  None),
+        #~ (1, strategy.interval, None),
+        #~ (2, strategy.nominal,  None),
+        #~ (3, strategy.interval, None),
+        #~ (4, strategy.nominal,  None),
+        #~ (5, strategy.interval, None),
+        #~ (6, strategy.nominal,  None),
+        #~ (7, strategy.interval, None),
+        #~ (8, strategy.nominal,  None),
+        #~ (9, strategy.interval, None),
+    #~ ], quiet=True, threshold=.0)
 
-    print 'Tree size: %d' % tree.size()
+    #~ print 'Tree size: %d' % tree.size()
 
     #~ print 'Test tree:'
     #~ print make_decision(tree, {'a': 5, 'b': datetime.date(2006, 12, 5), 'c': 'B', 'd': 'C'})
@@ -293,19 +344,20 @@ def __test__():
     #~ testset  = data[:len(data)/2]
     #~ validset = data[len(data)/2:]
     #~ tree = build_postpruning_tree(testset, validset, 10, [
-        #~ (0, strategy.nominal,  None),
-        #~ (1, strategy.interval, None),
-        #~ (2, strategy.nominal,  None),
-        #~ (3, strategy.interval, None),
-        #~ (4, strategy.nominal,  None),
-        #~ (5, strategy.interval, None),
-        #~ (6, strategy.nominal,  None),
-        #~ (7, strategy.interval, None),
-        #~ (8, strategy.nominal,  None),
-        #~ (9, strategy.interval, None),
-    #~ ], quiet=False)
+    tree = build_postpruning_tree(data, data, 10, [
+        (0, strategy.nominal,  None),
+        (1, strategy.interval, None),
+        (2, strategy.nominal,  None),
+        (3, strategy.interval, None),
+        (4, strategy.nominal,  None),
+        (5, strategy.interval, None),
+        (6, strategy.nominal,  None),
+        (7, strategy.interval, None),
+        (8, strategy.nominal,  None),
+        (9, strategy.interval, None),
+    ], quiet=False)
 
-    #~ print 'Tree size: %d' % tree.size()
+    print 'Tree size: %d' % tree.size()
 
     #~ print 'Test tree:'
     #~ print make_decision(tree, {'a': 5, 'b': datetime.date(2006, 12, 5), 'c': 'B', 'd': 'C'})
