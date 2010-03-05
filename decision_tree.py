@@ -281,8 +281,7 @@ def build_postpruning_tree(dataset, cls_attr, attr_strategy, measure=None, penal
     tree = build_tree(dataset, cls_attr, attr_strategy, measure, .0, quiet)
     size = len(dataset)
 
-    if not quiet:
-        print 'post-pruning...'
+    print 'post-pruning...'
 
     o_estimate = None
     while True:
@@ -293,11 +292,11 @@ def build_postpruning_tree(dataset, cls_attr, attr_strategy, measure=None, penal
                 err_count += 1
 
         estimate = float(err_count + tree.size() * penalty) / size
-        if not quiet:
-            print 'leaf: %s, dataset: %s, err: %s [%s%%]' % \
-                (tree.size(), size, err_count, 100.0 * err_count / size)
-            print 'estimates: %s %s' % (o_estimate, estimate)
-            print
+        print 'leaf: %s, dataset: %s, err: %s [%s%%]' % \
+            (tree.size(), size, err_count, 100.0 * err_count / size)
+        print 'old err-estimate: %s, new err-estimate: %s' % \
+            (o_estimate, estimate)
+        print
 
         if o_estimate is not None and estimate >= o_estimate:
             # not (trimmed-lvl-err-estimate < last-lvl-err-estimate)
@@ -356,7 +355,7 @@ def __test__():
         (7, strategy.interval, None),
         (8, strategy.nominal,  None),
         (9, strategy.interval, None),
-    ], quiet=False)
+    ], quiet=True)
 
     print 'Tree size: %d' % tree.size()
 
