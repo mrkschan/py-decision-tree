@@ -269,22 +269,25 @@ def make_decision(tree, instance):
     return node.cls
 
 
-def build_postpruning_tree(testset, validset, cls_attr, attr_strategy, measure=None, penality=.5, quiet=True):
+def build_postpruning_tree(dataset, cls_attr, attr_strategy, measure=None, penality=.5, quiet=True):
     '''
     Build a decision tree by post-pruning method
-        Post-pruning by err-estimate on validation set
-        err-estimate =
-            err-instances + tree-size * size-penality / validation-set-size
+        Post-pruning by err-estimate on training set
+        pessimistic err-estimate =
+            err-instances + leaf-count * size-penality / training-set-size
 
-        Stop pruning tree when lower-lvl-err-estimate < higher-lvl-err-estimate
+        Continues pruning tree when trimmed-lvl-err-estimate < last-lvl-err-estimate
     '''
-    tree = build_tree(testset, cls_attr, attr_strategy, measure, .0, quiet)
-    size = len(validset)
+    tree = build_tree(dataset, cls_attr, attr_strategy, measure, .0, quiet)
+    size = len(dataset)
+
+    if not quiet:
+        print 'post-pruning...'
 
     o_estimate = None
     while True:
         err_count  = 0
-        for instance in validset:
+        for instance in dataset:
             c = make_decision(tree, instance)
             if c != instance[cls_attr]:
                 err_count += 1
@@ -296,7 +299,8 @@ def build_postpruning_tree(testset, validset, cls_attr, attr_strategy, measure=N
             print 'estimates: %s %s' % (o_estimate, estimate)
             print
 
-        if o_estimate is not None and o_estimate <= estimate:
+        if o_estimate is not None and estimate >= o_estimate:
+            # not (trimmed-lvl-err-estimate < last-lvl-err-estimate)
             break
 
         otree = tree.clone()
@@ -341,10 +345,7 @@ def __test__():
 
     print
 
-    #~ testset  = data[:len(data)/2]
-    #~ validset = data[len(data)/2:]
-    #~ tree = build_postpruning_tree(testset, validset, 10, [
-    tree = build_postpruning_tree(data, data, 10, [
+    tree = build_postpruning_tree(data, 10, [
         (0, strategy.nominal,  None),
         (1, strategy.interval, None),
         (2, strategy.nominal,  None),
