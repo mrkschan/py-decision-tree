@@ -269,21 +269,22 @@ def make_decision(tree, instance):
     return node.cls
 
 
-def build_postpruning_tree(dataset, cls_attr, attr_strategy, measure=None, penalty=.5, quiet=True):
+def pruning_tree(tree, dataset, cls_attr, penalty=.5, quiet=True):
     '''
-    Build a decision tree by post-pruning method
-        Post-pruning by err-estimate on training set
+    Post-pruning a decision tree by err-estimate on data set
         pessimistic err-estimate =
-            err-instances + leaf-count * size-penalty / training-set-size
+            err-instances + leaf-count * size-penalty / data-set-size
 
         Continues pruning tree when trimmed-lvl-err-estimate < last-lvl-err-estimate
     '''
-    tree = build_tree(dataset, cls_attr, attr_strategy, measure, .0, quiet)
+    tree = tree.clone()
     size = len(dataset)
 
-    print 'post-pruning...'
+    if not quiet:
+        print 'post-pruning'
 
     o_estimate = None
+    otree = None
     while True:
         err_count  = 0
         for instance in dataset:
@@ -292,11 +293,13 @@ def build_postpruning_tree(dataset, cls_attr, attr_strategy, measure=None, penal
                 err_count += 1
 
         estimate = float(err_count + tree.size() * penalty) / size
-        print 'leaf: %s, dataset: %s, err: %s [%s%%]' % \
-            (tree.size(), size, err_count, 100.0 * err_count / size)
-        print 'old err-estimate: %s, new err-estimate: %s' % \
-            (o_estimate, estimate)
-        print
+
+        if not quiet:
+            print 'leaf: %s, dataset: %s, err: %s [%s%%]' % \
+                (tree.size(), size, err_count, 100.0 * err_count / size)
+            print 'old err-estimate: %s, new err-estimate: %s' % \
+                (o_estimate, estimate)
+            print
 
         if o_estimate is not None and estimate >= o_estimate:
             # not (trimmed-lvl-err-estimate < last-lvl-err-estimate)
@@ -320,31 +323,7 @@ def __test__():
     f.close()
 
 
-    #~ tree = build_tree(data, 10, [
-        #~ (0, strategy.nominal,  None),
-        #~ (1, strategy.interval, None),
-        #~ (2, strategy.nominal,  None),
-        #~ (3, strategy.interval, None),
-        #~ (4, strategy.nominal,  None),
-        #~ (5, strategy.interval, None),
-        #~ (6, strategy.nominal,  None),
-        #~ (7, strategy.interval, None),
-        #~ (8, strategy.nominal,  None),
-        #~ (9, strategy.interval, None),
-    #~ ], quiet=True, threshold=.0)
-
-    #~ print 'Tree size: %d' % tree.size()
-
-    #~ print 'Test tree:'
-    #~ print make_decision(tree, {'a': 5, 'b': datetime.date(2006, 12, 5), 'c': 'B', 'd': 'C'})
-    #~ print make_decision(tree, {'a': 1, 'b': datetime.date(2006, 12, 5), 'c': 'B', 'd': 'C'})
-    #~ print make_decision(tree, {'a': 5, 'b': datetime.date(2006, 12, 5), 'c': 'D', 'd': 'B'})
-    #~ print make_decision(tree, {'a': 5, 'b': datetime.date(2006, 12, 5), 'c': 'D', 'd': 'A'})
-    #~ print make_decision(tree, {'a': 5, 'b': datetime.date(2006, 12, 5), 'c': 'D', 'd': 'C'})
-
-    print
-
-    tree = build_postpruning_tree(data, 10, [
+    tree = build_tree(data, 10, [
         (0, strategy.nominal,  None),
         (1, strategy.interval, None),
         (2, strategy.nominal,  None),
@@ -356,15 +335,14 @@ def __test__():
         (8, strategy.nominal,  None),
         (9, strategy.interval, None),
     ], quiet=True)
-
     print 'Tree size: %d' % tree.size()
 
-    #~ print 'Test tree:'
-    #~ print make_decision(tree, {'a': 5, 'b': datetime.date(2006, 12, 5), 'c': 'B', 'd': 'C'})
-    #~ print make_decision(tree, {'a': 1, 'b': datetime.date(2006, 12, 5), 'c': 'B', 'd': 'C'})
-    #~ print make_decision(tree, {'a': 5, 'b': datetime.date(2006, 12, 5), 'c': 'D', 'd': 'B'})
-    #~ print make_decision(tree, {'a': 5, 'b': datetime.date(2006, 12, 5), 'c': 'D', 'd': 'A'})
-    #~ print make_decision(tree, {'a': 5, 'b': datetime.date(2006, 12, 5), 'c': 'D', 'd': 'C'})
+    _tree = pruning_tree(tree, data, 10, quiet=False)
+    print 'Tree size: %d' % _tree.size()
+
+    _tree = pruning_tree(tree, data, 10, 1.0, quiet=False)
+    print 'Tree size: %d' % _tree.size()
+
 
 if __name__ == '__main__':
     __test__()
