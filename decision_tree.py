@@ -269,12 +269,12 @@ def make_decision(tree, instance):
     return node.cls
 
 
-def build_postpruning_tree(dataset, cls_attr, attr_strategy, measure=None, penality=.5, quiet=True):
+def build_postpruning_tree(dataset, cls_attr, attr_strategy, measure=None, penalty=.5, quiet=True):
     '''
     Build a decision tree by post-pruning method
         Post-pruning by err-estimate on training set
         pessimistic err-estimate =
-            err-instances + leaf-count * size-penality / training-set-size
+            err-instances + leaf-count * size-penalty / training-set-size
 
         Continues pruning tree when trimmed-lvl-err-estimate < last-lvl-err-estimate
     '''
@@ -292,7 +292,7 @@ def build_postpruning_tree(dataset, cls_attr, attr_strategy, measure=None, penal
             if c != instance[cls_attr]:
                 err_count += 1
 
-        estimate = (err_count + tree.size() * penality) / size
+        estimate = float(err_count + tree.size() * penalty) / size
         if not quiet:
             print 'leaf: %s, dataset: %s, err: %s [%s%%]' % \
                 (tree.size(), size, err_count, 100.0 * err_count / size)
