@@ -19,10 +19,10 @@ def nominal(dataset, attr, cls_attr, measure, impurity=None, normalize=True, _cm
 # TODO: may try to pass index instead of a set to impurity measure
     cluster = {}
     for instance in dataset:
-        cls = instance[attr]
-        if not cluster.has_key(cls):
-            cluster[cls] = []
-        cluster[cls].append(instance)
+        val = instance[attr]
+        if not cluster.has_key(val):
+            cluster[val] = []
+        cluster[val].append(instance)
 
     gain = impurity
     size = len(dataset)
@@ -41,7 +41,7 @@ def nominal(dataset, attr, cls_attr, measure, impurity=None, normalize=True, _cm
         # normalize as gain ratio
         gain /= split
 
-    return cluster.keys(), gain
+    return cluster.keys(), gain, cluster
 
 
 def ordinal(dataset, attr, cls_attr, measure, impurity=None, normalize=True, _cmp=None):
@@ -61,6 +61,7 @@ def ordinal(dataset, attr, cls_attr, measure, impurity=None, normalize=True, _cm
 
     best_gain  = .0
     best_pivot = None
+    cluster    = None
     size       = len(dataset)
     for i in xrange(1, size):
         if dataset[i-1][attr] == dataset[i][attr]:
@@ -90,8 +91,9 @@ def ordinal(dataset, attr, cls_attr, measure, impurity=None, normalize=True, _cm
             if gain > best_gain:
                 best_gain  = gain
                 best_pivot = pivot
+                cluster    = {0: tail_partition, 1: head_partition}
 
-    return best_pivot, best_gain
+    return best_pivot, best_gain, cluster
 
 def interval(dataset, attr, cls_attr, measure, impurity=None, normalize=True, _cmp=None):
     '''
@@ -111,6 +113,7 @@ def interval(dataset, attr, cls_attr, measure, impurity=None, normalize=True, _c
 
     best_gain  = .0
     best_pivot = None
+    cluster    = None
     size       = len(dataset)
     for i in xrange(1, size):
         if dataset[i-1][attr] == dataset[i][attr]:
@@ -140,8 +143,9 @@ def interval(dataset, attr, cls_attr, measure, impurity=None, normalize=True, _c
             if gain > best_gain:
                 best_gain  = gain
                 best_pivot = pivot
+                cluster    = {0: tail_partition, 1: head_partition}
 
-    return best_pivot, best_gain
+    return best_pivot, best_gain, cluster
 
 def ratio(dataset, attr, cls_attr, measure, impurity=None, normalize=True, _cmp=None):
     '''
@@ -161,6 +165,7 @@ def ratio(dataset, attr, cls_attr, measure, impurity=None, normalize=True, _cmp=
 
     best_gain  = .0
     best_pivot = None
+    cluster    = None
     size       = len(dataset)
     for i in xrange(1, size):
         if dataset[i-1][attr] == dataset[i][attr]:
@@ -190,8 +195,9 @@ def ratio(dataset, attr, cls_attr, measure, impurity=None, normalize=True, _cmp=
             if gain > best_gain:
                 best_gain  = gain
                 best_pivot = pivot
+                cluster    = {0: tail_partition, 1: head_partition}
 
-    return best_pivot, best_gain
+    return best_pivot, best_gain, cluster
 
 
 def __test__():

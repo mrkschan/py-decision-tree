@@ -161,20 +161,23 @@ def build_tree(dataset, cls_attr, attr_strategy, measure=None, threshold=.0, qui
     # pick a partition strategy by the best purity gain
     else:
         # get all gains
-        gain_pivot_pairs = {}
+        attr_gain_map = {}
         for attr, strategy, _cmp in attr_strategy:
-            gain_pivot_pairs[attr] = strategy(
+            attr_gain_map[attr] = strategy(
                 dataset, attr, cls_attr, measure, impurity, _cmp)
 
         # retrieve best gain
         best_gain = .0
         best_attr = None
         pivot     = None
-        for attr, gain_pivot in gain_pivot_pairs.items():
-            if gain_pivot[1] > best_gain:
+        clusters  = None
+        for attr, result in attr_gain_map.items():
+            p, g, c = result
+            if g > best_gain:
                 best_attr = attr
-                best_gain = gain_pivot[1]
-                pivot     = gain_pivot[0]
+                pivot     = p
+                best_gain = g
+                clusters  = c
 
         if not quiet:
             if isinstance(pivot, list):
@@ -195,29 +198,7 @@ def build_tree(dataset, cls_attr, attr_strategy, measure=None, threshold=.0, qui
 
 
         # remove best attribute from further levels of decision
-        attr_strategy = [i for i in attr_strategy if i[0] != best_attr]
-
-        # perform clustering for further levels of decision
-        clusters = {}
-        if isinstance(pivot, list):
-            # multiway clustering
-            for instance in dataset:
-                val = instance[best_attr]
-                if not clusters.has_key(val):
-                    clusters[val] = []
-                clusters[val].append(instance)
-        else:
-            # binary clustering
-            for instance in dataset:
-                val = instance[best_attr]
-                if val < pivot:
-                    if not clusters.has_key(1):
-                        clusters[1] = []
-                    clusters[1].append(instance)
-                else:
-                    if not clusters.has_key(0):
-                        clusters[0] = []
-                    clusters[0].append(instance)
+        attr_strategy = [(a, s, c) for a, s, c in attr_strategy if a != best_attr]
 
         tree = TreeNode()
         tree.cls_attr = cls_attr
@@ -226,14 +207,9 @@ def build_tree(dataset, cls_attr, attr_strategy, measure=None, threshold=.0, qui
         tree.attr     = best_attr
         tree.branches = {}
 
-        if isinstance(pivot, list):
-            # multi-branches
-            for val, c in clusters.items():
-                tree.branches[val] = build_tree(c, cls_attr, attr_strategy, measure, threshold, quiet, _depth+1)
-        else:
-            # binary-branches
-            tree.branches[0] = build_tree(clusters[0], cls_attr, attr_strategy, measure, threshold, quiet, _depth+1)
-            tree.branches[1] = build_tree(clusters[1], cls_attr, attr_strategy, measure, threshold, quiet, _depth+1)
+        for val, c in clusters.items():
+            tree.branches[val] = build_tree(
+                c, cls_attr, attr_strategy, measure, threshold, quiet, _depth+1)
 
         return tree
 
