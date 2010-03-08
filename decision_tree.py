@@ -247,25 +247,25 @@ def make_decision(tree, instance):
         pivot = node.pivot
         attr  = node.attr
         val   = instance[attr]
+
         if isinstance(pivot, list):
+            # multi-way split
             if node.branches.has_key(val):
                 node = node.branches[val]
             else:
-                node     = TreeNode()
-                node.cls = 'Un-classified'
+                return None
         else:
+            # binary split
             if val < pivot:
                 if node.branches.has_key(1):
                     node = node.branches[1]
                 else:
-                    node     = TreeNode()
-                    node.cls = 'Un-classified'
+                    return None
             else:
                 if node.branches.has_key(0):
                     node = node.branches[0]
                 else:
-                    node     = TreeNode()
-                    node.cls = 'Un-classified'
+                    return None
     return node.cls
 
 
@@ -289,7 +289,7 @@ def pruning_tree(tree, dataset, cls_attr, penalty=.5, quiet=True):
         err_count  = 0
         for instance in dataset:
             c = make_decision(tree, instance)
-            if c != instance[cls_attr]:
+            if instance[cls_attr] != c:
                 err_count += 1
 
         estimate = float(err_count + tree.size() * penalty) / size
