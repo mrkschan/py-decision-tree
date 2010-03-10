@@ -109,6 +109,11 @@ def build_tree(dataset, cls_attr, attr_strategy, measure=None, threshold=.0, qui
     Each leave node is a class
         - attr_strategy is a list of tuple: [(attr, strategy, sorting fn), ...]
     '''
+    if not quiet:
+        pad = ''
+        for p in xrange(0, _depth):
+            pad += '  '
+
     if threshold is None:
         threshold = .0
 
@@ -123,6 +128,9 @@ def build_tree(dataset, cls_attr, attr_strategy, measure=None, threshold=.0, qui
         leaf.depth   = _depth
         leaf.cluster = []
         leaf.cls     = 'Un-classified'
+
+        if not quiet:
+            print '%sleaf - %s' % (pad, leaf.cls)
         return leaf
 
     # if no more attribute for decision
@@ -133,6 +141,9 @@ def build_tree(dataset, cls_attr, attr_strategy, measure=None, threshold=.0, qui
         leaf.cluster  = dataset
         leaf.cls_attr = cls_attr
         leaf.cls      = leaf.majority()
+
+        if not quiet:
+            print '%sleaf - %s by majority [no attr left]' % (pad, leaf.cls)
         return leaf
 
     # compute impurity for further processing
@@ -146,6 +157,9 @@ def build_tree(dataset, cls_attr, attr_strategy, measure=None, threshold=.0, qui
         leaf.cluster  = dataset
         leaf.cls_attr = cls_attr
         leaf.cls      = dataset[0][cls_attr]
+
+        if not quiet:
+            print '%sleaf - %s' % (pad, leaf.cls)
         return leaf
 
     # if impurity of dataset is below threshold
@@ -156,6 +170,9 @@ def build_tree(dataset, cls_attr, attr_strategy, measure=None, threshold=.0, qui
         leaf.cluster  = dataset
         leaf.cls_attr = cls_attr
         leaf.cls      = leaf.majority()
+
+        if not quiet:
+            print '%sleaf - %s by majority [threshold reach]' % (pad, leaf.cls)
         return leaf
 
     # pick a partition strategy by the best purity gain
@@ -179,22 +196,25 @@ def build_tree(dataset, cls_attr, attr_strategy, measure=None, threshold=.0, qui
                 best_gain = g
                 clusters  = c
 
-        if not quiet:
-            if isinstance(pivot, list):
-                print 'impurity: %s, gain: %s, attr: %s, decision: by %s' \
-                    % (impurity, best_gain, best_attr, pivot)
-            else:
-                print 'impurity: %s, gain: %s, attr: %s, decision: val < %s' \
-                    % (impurity, best_gain, best_attr, pivot)
-
-        if best_gain - .0 < .0000001:
+        if best_attr is None:
             # early return for gaining not much purity
             leaf          = TreeNode()
             leaf.depth    = _depth
             leaf.cluster  = dataset
             leaf.cls_attr = cls_attr
             leaf.cls      = leaf.majority()
+
+            if not quiet:
+                print '%sleaf - %s by majority [no further gain]' % (pad, leaf.cls)
             return leaf
+
+        if not quiet:
+            if isinstance(pivot, list):
+                print '%simpurity: %s, gain: %s, attr: %s, decision: by %s' \
+                    % (pad, impurity, best_gain, best_attr, pivot)
+            else:
+                print '%simpurity: %s, gain: %s, attr: %s, decision: val < %s' \
+                    % (pad, impurity, best_gain, best_attr, pivot)
 
 
         # remove best attribute from further levels of decision
