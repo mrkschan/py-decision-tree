@@ -189,7 +189,7 @@ def build_tree(dataset, cls_attr, attr_strategy, measure=None, threshold=.0, qui
         pivot     = None
         clusters  = None
         for attr, result in attr_gain_map.items():
-            p, g, c = result
+            g, p, c = result
             if g > best_gain:
                 best_attr = attr
                 pivot     = p
@@ -218,7 +218,7 @@ def build_tree(dataset, cls_attr, attr_strategy, measure=None, threshold=.0, qui
 
 
         # remove best attribute from further levels of decision
-        attr_strategy = [(a, s, c) for a, s, c in attr_strategy if a != best_attr]
+        attr_strategy = [(a, s, cmp) for a, s, cmp in attr_strategy if a != best_attr]
 
         tree = TreeNode()
         tree.cls_attr = cls_attr

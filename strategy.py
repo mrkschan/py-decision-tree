@@ -16,16 +16,18 @@ def nominal(dataset, attr, cls_attr, measure, impurity=None, normalize=True, _cm
     if impurity is None:
         impurity = measure(dataset, cls_attr)
 
-# TODO: may try to pass index instead of a set to impurity measure
+    size    = len(dataset)
     cluster = {}
-    for instance in dataset:
+    for idx in xrange(0, size):
+        instance = dataset[idx]
         val = instance[attr]
+
         if not cluster.has_key(val):
             cluster[val] = []
+
         cluster[val].append(instance)
 
     gain = impurity
-    size = len(dataset)
 
     if normalize:
         split = .0
@@ -41,7 +43,93 @@ def nominal(dataset, attr, cls_attr, measure, impurity=None, normalize=True, _cm
         # normalize as gain ratio
         gain /= split
 
-    return cluster.keys(), gain, cluster
+    return gain, cluster.keys(), cluster
+
+
+def get_pivot_ordinal(idx, dataset, attr):
+    return dataset[idx][attr]
+
+def get_pivot_interval(idx, dataset, attr):
+    return dataset[idx][attr]
+
+def get_pivot_ratio(idx, dataset, attr):
+    return float(dataset[idx][attr] - dataset[idx-1][attr]) / 2
+
+
+def binary_partitioning(s_idx, e_idx, dataset, attr, cls_attr, measure, impurity, normalize, size, get_pivot):
+    bg = .0
+    bp = None
+    bi = 1
+
+    for idx in xrange(s_idx, e_idx):
+        if dataset[idx - 1][attr] == dataset[idx][attr]:
+            # skip same attribute value, consider the idx for last same value only
+            continue
+
+        pivot = get_pivot(idx, dataset, attr)
+
+        head_ratio     = float(idx) / size
+        head_impurity  = measure(dataset, cls_attr, xrange(0, idx))
+
+        tail_ratio     = float(size - idx) / size
+        tail_impurity  = measure(dataset, cls_attr, xrange(idx, size))
+
+        gain = impurity - (head_ratio * head_impurity) - (tail_ratio * tail_impurity)
+
+        if normalize:
+            # compute split info
+            split  = .0
+            split += -head_ratio * math.log(head_ratio, 2)
+            split += -tail_ratio * math.log(tail_ratio, 2)
+            gain /= split
+
+        if gain > bg:
+            bg = gain
+            bp = pivot
+            bi = idx
+    # End for: find partial best gain
+
+    return bg, bp, bi
+
+def partitioning_wrapper(args):
+    return binary_partitioning(*args)
+
+#~ import os, multiprocessing as mp
+#~ PROCESSES = os.sysconf("SC_NPROCESSORS_CONF")
+#~ PROCESSES = 1
+#~ POOL = mp.Pool(processes=PROCESSES)
+def partitioning(dataset, attr, cls_attr, measure, impurity, normalize, get_pivot):
+    '''
+    partitioning by multi-processes
+    '''
+    size = len(dataset)
+
+    best_gain, best_pivot, best_idx = binary_partitioning(0, size, dataset, attr, cls_attr, measure, impurity, normalize, size, get_pivot)
+
+    #~ args   = []
+    #~ pos    = 1
+    #~ offset = size / PROCESSES
+    #~ for i in xrange(0, PROCESSES):
+        #~ last = pos + offset
+        #~ if pos + offset > size: last = size
+
+        #~ args.append(
+            #~ (pos, last, dataset, attr, cls_attr, measure, impurity, normalize, size, get_pivot)
+        #~ )
+        #~ pos = last
+
+
+    #~ best_gain   = .0
+    #~ best_pivot  = None
+    #~ best_idx    = 1
+    #~ result_iter = POOL.imap(partitioning_wrapper, args)
+    #~ for g, p, i in result_iter:
+        #~ if g > best_gain:
+            #~ best_gain  = g
+            #~ best_pivot = p
+            #~ best_idx   = i
+
+    return best_gain, best_pivot, {1: dataset[:best_idx], 0: dataset[best_idx:]}
 
 
 def ordinal(dataset, attr, cls_attr, measure, impurity=None, normalize=True, _cmp=None):
@@ -56,44 +144,10 @@ def ordinal(dataset, attr, cls_attr, measure, impurity=None, normalize=True, _cm
     if impurity is None:
         impurity = measure(dataset, cls_attr)
 
-    dataset = dataset[:]    # create clone
+    # create clone sorted by attr value
     dataset = sorted(dataset, cmp=_cmp)
 
-    best_gain  = .0
-    best_pivot = None
-    cluster    = None
-    size       = len(dataset)
-    for i in xrange(1, size):
-        if dataset[i-1][attr] == dataset[i][attr]:
-            # same value, skip
-            continue
-        else:
-            pivot = dataset[i][attr]
-# TODO: may try to pass index instead of a set to impurity measure
-            head_partition = dataset[:i]
-            head_ratio     = float(len(head_partition)) / size
-            head_impurity  = measure(head_partition, cls_attr)
-
-            tail_partition = dataset[i:]
-            tail_ratio     = float(len(tail_partition)) / size
-            tail_impurity  = measure(tail_partition, cls_attr)
-
-            gain = impurity - (head_ratio * head_impurity) - (tail_ratio * tail_impurity)
-
-            if normalize:
-                # compute split info
-                split  = .0
-                split += -head_ratio * math.log(head_ratio, 2)
-                split += -tail_ratio * math.log(tail_ratio, 2)
-
-                gain /= split
-
-            if gain > best_gain:
-                best_gain  = gain
-                best_pivot = pivot
-                cluster    = {0: tail_partition, 1: head_partition}
-
-    return best_pivot, best_gain, cluster
+    return partitioning(dataset, attr, cls_attr, measure, impurity, normalize, get_pivot_ordinal)
 
 def interval(dataset, attr, cls_attr, measure, impurity=None, normalize=True, _cmp=None):
     '''
@@ -108,44 +162,10 @@ def interval(dataset, attr, cls_attr, measure, impurity=None, normalize=True, _c
     if impurity is None:
         impurity = measure(dataset, cls_attr)
 
-    dataset = dataset[:]    # create clone
+    # create clone sorted by attr value
     dataset = sorted(dataset, cmp=_cmp)
 
-    best_gain  = .0
-    best_pivot = None
-    cluster    = None
-    size       = len(dataset)
-    for i in xrange(1, size):
-        if dataset[i-1][attr] == dataset[i][attr]:
-            # same value, skip
-            continue
-        else:
-            pivot = dataset[i][attr]
-# TODO: may try to pass index instead of a set to impurity measure
-            head_partition = dataset[:i]
-            head_ratio     = float(len(head_partition)) / size
-            head_impurity  = measure(head_partition, cls_attr)
-
-            tail_partition = dataset[i:]
-            tail_ratio     = float(len(tail_partition)) / size
-            tail_impurity  = measure(tail_partition, cls_attr)
-
-            gain = impurity - (head_ratio * head_impurity) - (tail_ratio * tail_impurity)
-
-            if normalize:
-                # compute split info
-                split  = .0
-                split += -head_ratio * math.log(head_ratio, 2)
-                split += -tail_ratio * math.log(tail_ratio, 2)
-
-                gain /= split
-
-            if gain > best_gain:
-                best_gain  = gain
-                best_pivot = pivot
-                cluster    = {0: tail_partition, 1: head_partition}
-
-    return best_pivot, best_gain, cluster
+    return partitioning(dataset, attr, cls_attr, measure, impurity, normalize, get_pivot_interval)
 
 def ratio(dataset, attr, cls_attr, measure, impurity=None, normalize=True, _cmp=None):
     '''
@@ -160,44 +180,11 @@ def ratio(dataset, attr, cls_attr, measure, impurity=None, normalize=True, _cmp=
     if impurity is None:
         impurity = measure(dataset, cls_attr)
 
-    dataset = dataset[:]    # create clone
+    # create clone sorted by attr value
     dataset = sorted(dataset, cmp=_cmp)
 
-    best_gain  = .0
-    best_pivot = None
-    cluster    = None
-    size       = len(dataset)
-    for i in xrange(1, size):
-        if dataset[i-1][attr] == dataset[i][attr]:
-            # same value, skip
-            continue
-        else:
-            pivot = (dataset[i-1][attr] + dataset[i][attr]) / 2.0
-# TODO: may try to pass index instead of a set to impurity measure
-            head_partition = dataset[:i]
-            head_ratio     = float(len(head_partition)) / size
-            head_impurity  = measure(head_partition, cls_attr)
+    return partitioning(dataset, attr, cls_attr, measure, impurity, normalize, get_pivot_ratio)
 
-            tail_partition = dataset[i:]
-            tail_ratio     = float(len(tail_partition)) / size
-            tail_impurity  = measure(tail_partition, cls_attr)
-
-            gain = impurity - (head_ratio * head_impurity) - (tail_ratio * tail_impurity)
-
-            if normalize:
-                # compute split info
-                split  = .0
-                split += -head_ratio * math.log(head_ratio, 2)
-                split += -tail_ratio * math.log(tail_ratio, 2)
-
-                gain /= split
-
-            if gain > best_gain:
-                best_gain  = gain
-                best_pivot = pivot
-                cluster    = {0: tail_partition, 1: head_partition}
-
-    return best_pivot, best_gain, cluster
 
 
 def __test__():

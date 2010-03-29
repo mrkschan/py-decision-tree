@@ -1,6 +1,10 @@
 # utility function for computing impurity of a given dataset
 
-def entropy(dataset, cls_attr):
+def __accumulate_freq(freq, cls_label):
+    if freq.has_key(cls_label): freq[cls_label] += 1
+    else: freq[cls_label] = 1.0
+
+def entropy(dataset, cls_attr, indices=None):
     '''
     Infomation Theory - Entropy
         -Sum( Pi * log_2(Pi) )
@@ -13,15 +17,16 @@ def entropy(dataset, cls_attr):
 
     # for each instance,
     # accumlates the freq of the class of that instance belongs to
-    for instance in dataset:
-        cls_label = instance[cls_attr]
-        if freq.has_key(cls_label):
-            freq[cls_label] += 1
-        else:
-            freq[cls_label] = 1.0
+    if indices is None:
+        size = len(dataset)
+        for instance in dataset:
+            __accumulate_freq(freq, instance[cls_attr])
+    else:
+        size = len(indices)
+        for idx in indices:
+            __accumulate_freq(freq, dataset[idx][cls_attr])
 
     # compute -Sum( Pi * log_2(Pi) )
-    size = len(dataset)
     sum  = .0
     for f in freq.values():
         sum += (-f / size) * math.log(f / size, 2)
@@ -29,7 +34,7 @@ def entropy(dataset, cls_attr):
     return sum
 
 
-def giniidx(dataset, cls_attr):
+def giniidx(dataset, cls_attr, indices=None):
     '''
     Gini Index
         1 - Sum( P(Class_k)^2 )
@@ -38,23 +43,24 @@ def giniidx(dataset, cls_attr):
 
     # for each instance,
     # accumlates the freq of the class of that instance belongs to
-    for instance in dataset:
-        cls_label = instance[cls_attr]
-        if freq.has_key(cls_label):
-            freq[cls_label] += 1
-        else:
-            freq[cls_label] = 1.0
+    if indices is None:
+        size = len(dataset)
+        for instance in dataset:
+            __accumulate_freq(freq, instance[cls_attr])
+    else:
+        size = len(indices)
+        for idx in indices:
+            __accumulate_freq(freq, dataset[idx][cls_attr])
 
     # compute Sum( P(Class_k)^2 )
-    size = len(dataset)
-    sum  = .0
+    sum = .0
     for f in freq.values():
-        sum += (f / size) ** 2
+        sum += float(f / size) ** 2
 
     return 1 - sum
 
 
-def cls_err(dataset, cls_attr):
+def cls_err(dataset, cls_attr, indices=None):
     '''
     Classification Error
         1 - Max( P(Class_k) )
@@ -63,15 +69,16 @@ def cls_err(dataset, cls_attr):
 
     # for each instance,
     # accumlates the freq of the class of that instance belongs to
-    for instance in dataset:
-        cls_label = instance[cls_attr]
-        if freq.has_key(cls_label):
-            freq[cls_label] += 1
-        else:
-            freq[cls_label] = 1.0
+    if indices is None:
+        size = len(dataset)
+        for instance in dataset:
+            __accumulate_freq(freq, instance[cls_attr])
+    else:
+        size = len(indices)
+        for idx in indices:
+            __accumulate_freq(freq, dataset[idx][cls_attr])
 
     # find max prob
-    size     = len(dataset)
     max_prob = .0
     for f in freq.values():
         max_prob = max(max_prob, f/size)
