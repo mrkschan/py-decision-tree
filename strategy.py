@@ -17,12 +17,15 @@ def nominal(dataset, attr, cls_attr, measure, impurity=None, normalize=True, _cm
         impurity = measure(dataset, cls_attr)
 
     size    = len(dataset)
+    size_f  = float(size)
     cluster = {}
-    for idx in xrange(0, size):
+    #~ for idx in xrange(0, size):
+    for idx in range(0, size):
         instance = dataset[idx]
         val = instance[attr]
 
-        if not cluster.has_key(val):
+        #~ if not cluster.has_key(val):
+        if val not in cluster.keys():
             cluster[val] = []
 
         cluster[val].append(instance)
@@ -33,7 +36,7 @@ def nominal(dataset, attr, cls_attr, measure, impurity=None, normalize=True, _cm
         split = .0
 
     for c in cluster.values():
-        ratio = float(len(c)) / size
+        ratio = len(c) / size_f
         gain -= ratio * measure(c, cls_attr)
         if normalize:
             # compute split info for normalization
@@ -43,7 +46,8 @@ def nominal(dataset, attr, cls_attr, measure, impurity=None, normalize=True, _cm
         # normalize as gain ratio
         gain /= split
 
-    return gain, cluster.keys(), cluster
+    #~ return gain, cluster.keys(), cluster
+    return gain, list(cluster.keys()), cluster
 
 
 def get_pivot_ordinal(idx, dataset, attr):
@@ -53,26 +57,35 @@ def get_pivot_interval(idx, dataset, attr):
     return dataset[idx][attr]
 
 def get_pivot_ratio(idx, dataset, attr):
-    return float(dataset[idx][attr] - dataset[idx-1][attr]) / 2
+    return (dataset[idx][attr] - dataset[idx-1][attr]) / 2.0
 
 
-def binary_partitioning(s_idx, e_idx, dataset, attr, cls_attr, measure, impurity, normalize, size, get_pivot):
+def partitioning(dataset, attr, cls_attr, measure, impurity, normalize, get_pivot):
+    '''
+    binary partitioning
+    '''
+    size   = len(dataset)
+    size_f = float(size)
+
     bg = .0
     bp = None
-    bi = 1
+    bc = None
 
-    for idx in xrange(s_idx, e_idx):
+    #~ for idx in xrange(0, size):
+    for idx in range(0, size):
         if dataset[idx - 1][attr] == dataset[idx][attr]:
             # skip same attribute value, consider the idx for last same value only
             continue
 
         pivot = get_pivot(idx, dataset, attr)
 
-        head_ratio     = float(idx) / size
-        head_impurity  = measure(dataset, cls_attr, xrange(0, idx))
+        head_partition = dataset[:idx]
+        head_ratio     = idx / size_f
+        head_impurity  = measure(head_partition, cls_attr)
 
-        tail_ratio     = float(size - idx) / size
-        tail_impurity  = measure(dataset, cls_attr, xrange(idx, size))
+        tail_partition = dataset[idx:]
+        tail_ratio     = (size - idx) / size_f
+        tail_impurity  = measure(tail_partition, cls_attr)
 
         gain = impurity - (head_ratio * head_impurity) - (tail_ratio * tail_impurity)
 
@@ -86,50 +99,10 @@ def binary_partitioning(s_idx, e_idx, dataset, attr, cls_attr, measure, impurity
         if gain > bg:
             bg = gain
             bp = pivot
-            bi = idx
-    # End for: find partial best gain
+            bc = { 1: head_partition, 0: tail_partition }
+    # End for: finding best gain
 
-    return bg, bp, bi
-
-def partitioning_wrapper(args):
-    return binary_partitioning(*args)
-
-#~ import os, multiprocessing as mp
-#~ PROCESSES = os.sysconf("SC_NPROCESSORS_CONF")
-#~ PROCESSES = 1
-#~ POOL = mp.Pool(processes=PROCESSES)
-def partitioning(dataset, attr, cls_attr, measure, impurity, normalize, get_pivot):
-    '''
-    partitioning by multi-processes
-    '''
-    size = len(dataset)
-
-    best_gain, best_pivot, best_idx = binary_partitioning(0, size, dataset, attr, cls_attr, measure, impurity, normalize, size, get_pivot)
-
-    #~ args   = []
-    #~ pos    = 1
-    #~ offset = size / PROCESSES
-    #~ for i in xrange(0, PROCESSES):
-        #~ last = pos + offset
-        #~ if pos + offset > size: last = size
-
-        #~ args.append(
-            #~ (pos, last, dataset, attr, cls_attr, measure, impurity, normalize, size, get_pivot)
-        #~ )
-        #~ pos = last
-
-
-    #~ best_gain   = .0
-    #~ best_pivot  = None
-    #~ best_idx    = 1
-    #~ result_iter = POOL.imap(partitioning_wrapper, args)
-    #~ for g, p, i in result_iter:
-        #~ if g > best_gain:
-            #~ best_gain  = g
-            #~ best_pivot = p
-            #~ best_idx   = i
-
-    return best_gain, best_pivot, {1: dataset[:best_idx], 0: dataset[best_idx:]}
+    return bg, bp, bc
 
 
 def ordinal(dataset, attr, cls_attr, measure, impurity=None, normalize=True, _cmp=None):
@@ -138,14 +111,15 @@ def ordinal(dataset, attr, cls_attr, measure, impurity=None, normalize=True, _cm
         - Binary partitioning
         e.g. Grade {A, B, C, ..., F}
     '''
-    if _cmp is None:
-        _cmp = lambda x,y: cmp(x[attr], y[attr])
+    #~ if _cmp is None:
+        #~ _cmp = lambda x,y: cmp(x[attr], y[attr])
 
     if impurity is None:
         impurity = measure(dataset, cls_attr)
 
     # create clone sorted by attr value
-    dataset = sorted(dataset, cmp=_cmp)
+    #~ dataset = sorted(dataset, cmp=_cmp)
+    dataset = sorted(dataset, key=lambda x: x[attr])
 
     return partitioning(dataset, attr, cls_attr, measure, impurity, normalize, get_pivot_ordinal)
 
@@ -156,14 +130,15 @@ def interval(dataset, attr, cls_attr, measure, impurity=None, normalize=True, _c
         - Binary partitioning
         e.g. calendar date
     '''
-    if _cmp is None:
-        _cmp = lambda x,y: cmp(x[attr], y[attr])
+    #~ if _cmp is None:
+        #~ _cmp = lambda x,y: cmp(x[attr], y[attr])
 
     if impurity is None:
         impurity = measure(dataset, cls_attr)
 
     # create clone sorted by attr value
-    dataset = sorted(dataset, cmp=_cmp)
+    #~ dataset = sorted(dataset, cmp=_cmp)
+    dataset = sorted(dataset, key=lambda x: x[attr])
 
     return partitioning(dataset, attr, cls_attr, measure, impurity, normalize, get_pivot_interval)
 
@@ -174,14 +149,15 @@ def ratio(dataset, attr, cls_attr, measure, impurity=None, normalize=True, _cmp=
         - Binary partitioning
         e.g. length, mass
     '''
-    if _cmp is None:
-        _cmp = lambda x,y: cmp(x[attr], y[attr])
+    #~ if _cmp is None:
+        #~ _cmp = lambda x,y: cmp(x[attr], y[attr])
 
     if impurity is None:
         impurity = measure(dataset, cls_attr)
 
     # create clone sorted by attr value
-    dataset = sorted(dataset, cmp=_cmp)
+    #~ dataset = sorted(dataset, cmp=_cmp)
+    dataset = sorted(dataset, key=lambda x: x[attr])
 
     return partitioning(dataset, attr, cls_attr, measure, impurity, normalize, get_pivot_ratio)
 
@@ -203,45 +179,45 @@ def __test__():
     giniidx_impurity = measure.giniidx(data, 'cls')
     cls_err_impurity = measure.cls_err(data, 'cls')
 
-    print 'split'
-    print ratio(data, 'a', 'cls', measure.entropy, entropy_impurity)
-    print ratio(data, 'a', 'cls', measure.giniidx, giniidx_impurity)
-    print ratio(data, 'a', 'cls', measure.cls_err, cls_err_impurity)
-    print 'nosplit'
-    print ratio(data, 'a', 'cls', measure.entropy, entropy_impurity, False)
-    print ratio(data, 'a', 'cls', measure.giniidx, giniidx_impurity, False)
-    print ratio(data, 'a', 'cls', measure.cls_err, cls_err_impurity, False)
-    print
+    #~ print 'split'
+    #~ print ratio(data, 'a', 'cls', measure.entropy, entropy_impurity)
+    #~ print ratio(data, 'a', 'cls', measure.giniidx, giniidx_impurity)
+    #~ print ratio(data, 'a', 'cls', measure.cls_err, cls_err_impurity)
+    #~ print 'nosplit'
+    #~ print ratio(data, 'a', 'cls', measure.entropy, entropy_impurity, False)
+    #~ print ratio(data, 'a', 'cls', measure.giniidx, giniidx_impurity, False)
+    #~ print ratio(data, 'a', 'cls', measure.cls_err, cls_err_impurity, False)
+    #~ print
 
-    print 'split'
-    print interval(data, 'b', 'cls', measure.entropy, entropy_impurity)
-    print interval(data, 'b', 'cls', measure.giniidx, giniidx_impurity)
-    print interval(data, 'b', 'cls', measure.cls_err, cls_err_impurity)
-    print 'nosplit'
-    print interval(data, 'b', 'cls', measure.entropy, entropy_impurity, False)
-    print interval(data, 'b', 'cls', measure.giniidx, giniidx_impurity, False)
-    print interval(data, 'b', 'cls', measure.cls_err, cls_err_impurity, False)
-    print
+    #~ print 'split'
+    #~ print interval(data, 'b', 'cls', measure.entropy, entropy_impurity)
+    #~ print interval(data, 'b', 'cls', measure.giniidx, giniidx_impurity)
+    #~ print interval(data, 'b', 'cls', measure.cls_err, cls_err_impurity)
+    #~ print 'nosplit'
+    #~ print interval(data, 'b', 'cls', measure.entropy, entropy_impurity, False)
+    #~ print interval(data, 'b', 'cls', measure.giniidx, giniidx_impurity, False)
+    #~ print interval(data, 'b', 'cls', measure.cls_err, cls_err_impurity, False)
+    #~ print
 
-    print 'split'
-    print ordinal(data, 'c', 'cls', measure.entropy, entropy_impurity)
-    print ordinal(data, 'c', 'cls', measure.giniidx, giniidx_impurity)
-    print ordinal(data, 'c', 'cls', measure.cls_err, cls_err_impurity)
-    print 'nosplit'
-    print ordinal(data, 'c', 'cls', measure.entropy, entropy_impurity, False)
-    print ordinal(data, 'c', 'cls', measure.giniidx, giniidx_impurity, False)
-    print ordinal(data, 'c', 'cls', measure.cls_err, cls_err_impurity, False)
-    print
+    #~ print 'split'
+    #~ print ordinal(data, 'c', 'cls', measure.entropy, entropy_impurity)
+    #~ print ordinal(data, 'c', 'cls', measure.giniidx, giniidx_impurity)
+    #~ print ordinal(data, 'c', 'cls', measure.cls_err, cls_err_impurity)
+    #~ print 'nosplit'
+    #~ print ordinal(data, 'c', 'cls', measure.entropy, entropy_impurity, False)
+    #~ print ordinal(data, 'c', 'cls', measure.giniidx, giniidx_impurity, False)
+    #~ print ordinal(data, 'c', 'cls', measure.cls_err, cls_err_impurity, False)
+    #~ print
 
-    print 'split'
-    print nominal(data, 'c', 'cls', measure.entropy, entropy_impurity)
-    print nominal(data, 'c', 'cls', measure.giniidx, giniidx_impurity)
-    print nominal(data, 'c', 'cls', measure.cls_err, cls_err_impurity)
-    print 'nosplit'
-    print nominal(data, 'c', 'cls', measure.entropy, entropy_impurity, False)
-    print nominal(data, 'c', 'cls', measure.giniidx, giniidx_impurity, False)
-    print nominal(data, 'c', 'cls', measure.cls_err, cls_err_impurity, False)
-    print
+    #~ print 'split'
+    #~ print nominal(data, 'c', 'cls', measure.entropy, entropy_impurity)
+    #~ print nominal(data, 'c', 'cls', measure.giniidx, giniidx_impurity)
+    #~ print nominal(data, 'c', 'cls', measure.cls_err, cls_err_impurity)
+    #~ print 'nosplit'
+    #~ print nominal(data, 'c', 'cls', measure.entropy, entropy_impurity, False)
+    #~ print nominal(data, 'c', 'cls', measure.giniidx, giniidx_impurity, False)
+    #~ print nominal(data, 'c', 'cls', measure.cls_err, cls_err_impurity, False)
+    #~ print
 
 if __name__ == '__main__':
     __test__()

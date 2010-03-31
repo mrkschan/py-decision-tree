@@ -34,7 +34,8 @@ class TreeNode:
 
         for instance in self.cluster:
             cls = instance[self.cls_attr]
-            if freq.has_key(cls):
+            #~ if freq.has_key(cls):
+            if cls in freq.keys():
                 freq[cls] += 1
             else:
                 freq[cls] = 1
@@ -102,6 +103,13 @@ class TreeNode:
 # end TreeNode
 
 
+#~ import multiprocessing as mp
+#~ def mp_compute_gain(args):
+    #~ gain_fn, _cmp, dataset, attr, cls_attr, measure, impurity = args
+    #~ return attr, gain_fn(dataset, attr, cls_attr, measure, impurity, _cmp)
+
+#~ MP_POOL = mp.Pool()
+
 def build_tree(dataset, cls_attr, attr_strategy, measure=None, threshold=.0, quiet=True, _depth=0):
     '''
     Build a tree of decisions based on given the dataset to carry classification
@@ -111,7 +119,8 @@ def build_tree(dataset, cls_attr, attr_strategy, measure=None, threshold=.0, qui
     '''
     if not quiet:
         pad = ''
-        for p in xrange(0, _depth):
+        #~ for p in xrange(0, _depth):
+        for p in range(0, _depth):
             pad += '  '
 
     if threshold is None:
@@ -130,7 +139,8 @@ def build_tree(dataset, cls_attr, attr_strategy, measure=None, threshold=.0, qui
         leaf.cls     = 'Un-classified'
 
         if not quiet:
-            print '%sleaf - %s' % (pad, leaf.cls)
+            #~ print '%sleaf - %s' % (pad, leaf.cls)
+            print(pad, 'leaf -', leaf.cls)
         return leaf
 
     # if no more attribute for decision
@@ -143,7 +153,8 @@ def build_tree(dataset, cls_attr, attr_strategy, measure=None, threshold=.0, qui
         leaf.cls      = leaf.majority()
 
         if not quiet:
-            print '%sleaf - %s by majority [no attr left]' % (pad, leaf.cls)
+            #~ print '%sleaf - %s by majority [no attr left]' % (pad, leaf.cls)
+            print(pad, 'leaf -', leaf.cls,'by majority [no attr left]')
         return leaf
 
     # compute impurity for further processing
@@ -159,7 +170,8 @@ def build_tree(dataset, cls_attr, attr_strategy, measure=None, threshold=.0, qui
         leaf.cls      = dataset[0][cls_attr]
 
         if not quiet:
-            print '%sleaf - %s' % (pad, leaf.cls)
+            #~ print '%sleaf - %s' % (pad, leaf.cls)
+            print(pad, 'leaf -', leaf.cls)
         return leaf
 
     # if impurity of dataset is below threshold
@@ -172,15 +184,23 @@ def build_tree(dataset, cls_attr, attr_strategy, measure=None, threshold=.0, qui
         leaf.cls      = leaf.majority()
 
         if not quiet:
-            print '%sleaf - %s by majority [threshold reach]' % (pad, leaf.cls)
+            #~ print '%sleaf - %s by majority [threshold reach]' % (pad, leaf.cls)
+            print(pad, 'leaf -', leaf.cls, 'by majority [threshold reach]')
         return leaf
 
     # pick a partition strategy by the best purity gain
     else:
-        # get all gains
+        # get all gains, by multiprocessing worker pool
+        #~ mp_args = [
+            #~ (gain_fn, _cmp, dataset, attr, cls_attr, measure, impurity)
+            #~ for attr, gain_fn, _cmp in attr_strategy
+        #~ ]
+        #~ mp_result = MP_POOL.map_async(mp_compute_gain, mp_args)
+        #~ mp_result.wait()
+
         attr_gain_map = {}
-        for attr, strategy, _cmp in attr_strategy:
-            attr_gain_map[attr] = strategy(
+        for attr, gain, _cmp in attr_strategy:
+            attr_gain_map[attr] = gain(
                 dataset, attr, cls_attr, measure, impurity, _cmp)
 
         # retrieve best gain
@@ -188,6 +208,7 @@ def build_tree(dataset, cls_attr, attr_strategy, measure=None, threshold=.0, qui
         best_attr = None
         pivot     = None
         clusters  = None
+
         for attr, result in attr_gain_map.items():
             g, p, c = result
             if g > best_gain:
@@ -195,6 +216,14 @@ def build_tree(dataset, cls_attr, attr_strategy, measure=None, threshold=.0, qui
                 pivot     = p
                 best_gain = g
                 clusters  = c
+
+        #~ for attr, result in mp_result.get():
+            #~ g, p, c = result
+            #~ if g > best_gain:
+                #~ best_attr = attr
+                #~ pivot     = p
+                #~ best_gain = g
+                #~ clusters  = c
 
         if best_attr is None:
             # early return for gaining not much purity
@@ -205,16 +234,25 @@ def build_tree(dataset, cls_attr, attr_strategy, measure=None, threshold=.0, qui
             leaf.cls      = leaf.majority()
 
             if not quiet:
-                print '%sleaf - %s by majority [no further gain]' % (pad, leaf.cls)
+                #~ print '%sleaf - %s by majority [no further gain]' % (pad, leaf.cls)
+                print(pad, 'leaf -', leaf.cls, 'by majority [no further gain]')
             return leaf
 
         if not quiet:
             if isinstance(pivot, list):
-                print '%simpurity: %s, gain: %s, attr: %s, decision: by %s' \
-                    % (pad, impurity, best_gain, best_attr, pivot)
+                #~ print '%simpurity: %s, gain: %s, attr: %s, decision: by %s' \
+                    #~ % (pad, impurity, best_gain, best_attr, pivot)
+                print(pad, 'impurity:', impurity,
+                       ', gain:', best_gain,
+                       ', attr:', best_attr,
+                       ', decision: by', pivot)
             else:
-                print '%simpurity: %s, gain: %s, attr: %s, decision: val < %s' \
-                    % (pad, impurity, best_gain, best_attr, pivot)
+                #~ print '%simpurity: %s, gain: %s, attr: %s, decision: val < %s' \
+                    #~ % (pad, impurity, best_gain, best_attr, pivot)
+                print(pad, 'impurity:', impurity,
+                       ', gain:', best_gain,
+                       ', attr:', best_attr,
+                       ', decision: val <', pivot)
 
 
         # remove best attribute from further levels of decision
@@ -246,19 +284,22 @@ def make_decision(tree, instance):
 
         if isinstance(pivot, list):
             # multi-way split
-            if node.branches.has_key(val):
+            #~ if node.branches.has_key(val):
+            if val in node.branches.keys():
                 node = node.branches[val]
             else:
                 return None
         else:
             # binary split
             if val < pivot:
-                if node.branches.has_key(1):
+                #~ if node.branches.has_key(1):
+                if 1 in node.branches.keys():
                     node = node.branches[1]
                 else:
                     return None
             else:
-                if node.branches.has_key(0):
+                #~ if node.branches.has_key(0):
+                if 0 in node.branches.keys():
                     node = node.branches[0]
                 else:
                     return None
@@ -277,7 +318,8 @@ def pruning_tree(tree, dataset, cls_attr, penalty=.5, quiet=True):
     size = len(dataset)
 
     if not quiet:
-        print 'post-pruning'
+        #~ print 'post-pruning'
+        print('post-pruning')
 
     o_estimate = None
     otree = None
@@ -291,11 +333,16 @@ def pruning_tree(tree, dataset, cls_attr, penalty=.5, quiet=True):
         estimate = float(err_count + tree.size() * penalty) / size
 
         if not quiet:
-            print 'leaf: %s, dataset: %s, err: %s [%s%%]' % \
-                (tree.size(), size, err_count, 100.0 * err_count / size)
-            print 'old err-estimate: %s, new err-estimate: %s' % \
-                (o_estimate, estimate)
-            print
+            #~ print 'leaf: %s, dataset: %s, err: %s [%s%%]' % \
+                #~ (tree.size(), size, err_count, 100.0 * err_count / size)
+            #~ print 'old err-estimate: %s, new err-estimate: %s' % \
+                #~ (o_estimate, estimate)
+            #~ print
+            print('leaf:', tree.size(),
+                  ', dataset:', size,
+                  ', err:', err_count, '[', 100.0 * err_count / size, '%]')
+            print('old err-estimate:', o_estimate, ', new err-estimate:', estimate)
+            print()
 
         if o_estimate is not None and estimate >= o_estimate:
             # not (trimmed-lvl-err-estimate < last-lvl-err-estimate)
@@ -331,13 +378,16 @@ def __test__():
         (8, strategy.nominal,  None),
         (9, strategy.interval, None),
     ], quiet=True)
-    print 'Tree size: %d' % tree.size()
+    #~ print 'Tree size: %d' % tree.size()
+    print('Tree size:', tree.size())
 
     _tree = pruning_tree(tree, data, 10, quiet=False)
-    print 'Tree size: %d' % _tree.size()
+    #~ print 'Tree size: %d' % _tree.size()
+    print('Tree size:', _tree.size())
 
     _tree = pruning_tree(tree, data, 10, 1.0, quiet=False)
-    print 'Tree size: %d' % _tree.size()
+    #~ print 'Tree size: %d' % _tree.size()
+    print('Tree size:', _tree.size())
 
 
 if __name__ == '__main__':
